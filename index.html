@@ -48,6 +48,7 @@
 
     <form id="main-form" class="hidden">
       <h2>Palettenschein Generator</h2>
+
       <label>Datum</label>
       <input type="date" id="datum" required>
 
@@ -79,9 +80,13 @@
       <label>Sonstiger Hinweis</label>
       <input type="text" id="sonstiges">
 
-      <label>Unterschrift</label>
-      <canvas id="sign" width="300" height="100"></canvas>
-      <button type="button" onclick="clearCanvas()">Signatur löschen</button>
+      <label>Unterschrift Fahrer</label>
+      <canvas id="sign-fahrer" width="300" height="100"></canvas>
+      <button type="button" onclick="clearCanvas('sign-fahrer')">Signatur löschen</button>
+
+      <label>Unterschrift d-log</label>
+      <canvas id="sign-dlog" width="300" height="100"></canvas>
+      <button type="button" onclick="clearCanvas('sign-dlog')">Signatur löschen</button>
 
       <button type="submit">PDF + Excel Erstellen</button>
     </form>
@@ -100,29 +105,38 @@
       }
     }
 
-    // Signature drawing
-    const canvas = document.getElementById("sign");
-    const ctx = canvas.getContext("2d");
-    let drawing = false;
+    // 初始化两个签名板
+    ['sign-fahrer', 'sign-dlog'].forEach(id => initCanvas(id));
 
-    canvas.addEventListener("mousedown", e => {
-      drawing = true;
-      ctx.beginPath();
-      ctx.moveTo(e.offsetX, e.offsetY);
-    });
-    canvas.addEventListener("mousemove", e => {
-      if (!drawing) return;
-      ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.stroke();
-    });
-    canvas.addEventListener("mouseup", () => drawing = false);
-    canvas.addEventListener("mouseout", () => drawing = false);
+    function initCanvas(id) {
+      const canvas = document.getElementById(id);
+      const ctx = canvas.getContext("2d");
+      let drawing = false;
 
-    function clearCanvas() {
+      canvas.addEventListener("mousedown", e => {
+        drawing = true;
+        ctx.beginPath();
+        ctx.moveTo(e.offsetX, e.offsetY);
+      });
+      canvas.addEventListener("mousemove", e => {
+        if (!drawing) return;
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+      });
+      canvas.addEventListener("mouseup", () => drawing = false);
+      canvas.addEventListener("mouseout", () => drawing = false);
+    }
+
+    function clearCanvas(id) {
+      const canvas = document.getElementById(id);
+      const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Submit event
+    function getSignatureData(id) {
+      return document.getElementById(id).toDataURL("image/png");
+    }
+
     document.getElementById("main-form").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -138,32 +152,41 @@
         "Sonstiger Hinweis": document.getElementById("sonstiges").value
       };
 
-      const signature = canvas.toDataURL("image/png");
+      const signFahrer = getSignatureData("sign-fahrer");
+      const signDlog = getSignatureData("sign-dlog");
 
-      // PDF
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-      doc.setFontSize(14);
       let y = 20;
+
+      doc.setFontSize(16);
       doc.text("Palettenschein", 105, y, { align: "center" });
       y += 10;
+      doc.setFontSize(12);
       for (const [k, v] of Object.entries(data)) {
         doc.text(`${k}: ${v}`, 20, y);
         y += 8;
       }
-      doc.addImage(signature, "PNG", 20, y, 80, 30);
-      doc.text("Unterschrift", 20, y + 35);
-      doc.save(`Palettenschein_${data.Nr}.pdf`);
+
+      doc.addImage(signFahrer, "PNG", 20, y, 60, 25);
+      doc.text("Unterschrift Fahrer", 20, y + 30);
+
+      doc.addImage(signDlog, "PNG", 110, y, 60, 25);
+      doc.text("Unterschrift d-log", 110, y + 30);
+
+      const filename = `Palettenschein Nr ${data.Nr}`;
+      doc.save(`${filename}.pdf`);
 
       // Excel
       const ws = XLSX.utils.json_to_sheet([data]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Palettenschein");
-      XLSX.writeFile(wb, `Palettenschein_${data.Nr}.xlsx`);
+      XLSX.writeFile(wb, `${filename}.xlsx`);
 
       alert("PDF und Excel erfolgreich erstellt.");
       document.getElementById("main-form").reset();
-      clearCanvas();
+      clearCanvas("sign-fahrer");
+      clearCanvas("sign-dlog");
     });
   </script>
 </body>
