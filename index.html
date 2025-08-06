@@ -1,174 +1,132 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Palettenschein Generator</title>
-  <script src="https://unpkg.com/jspdf@2.5.1/dist/polyfills.umd.min.js"></script>
   <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    .input {
-      border: 1px solid #ccc;
-      border-radius: 0.375rem;
-      padding: 0.5rem;
+    body {
+      font-family: sans-serif;
+      background-color: #111;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+    .hidden { display: none; }
+    input, select, button, canvas {
+      padding: 8px;
+      margin-bottom: 10px;
       width: 100%;
+      max-width: 300px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
     }
-    canvas {
-      border: 1px solid #888;
-      touch-action: none;
+    canvas { background: white; border: 1px solid #888; }
+    button {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
     }
+    button:hover { opacity: 0.9; }
+    .container { max-width: 400px; width: 100%; }
+    label { display: block; margin-top: 10px; font-weight: bold; }
   </style>
 </head>
-<body class="bg-gray-100 p-6">
-  <div class="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow">
-    <h1 class="text-2xl font-bold mb-4 text-center">Palettenschein Generator</h1>
-
-    <div class="mb-4 text-right text-sm text-gray-700 font-semibold">
-      <span>Berlin Zeit: </span><span id="top-date-time"></span>
+<body>
+  <div class="container">
+    <div id="login-box">
+      <h2>🔐 Passwort</h2>
+      <input type="password" id="password-input" placeholder="Gib das Passwort ein" />
+      <button onclick="checkPassword()">Login</button>
+      <p id="login-error" style="color: red; display: none;">❌ Falsches Passwort!</p>
     </div>
 
-    <div class="mb-4">
-      <label for="company" class="block font-semibold mb-1">Spedition wählen:</label>
-      <select id="company" class="input" onchange="handleCompanyChange()">
-        <option value="DHL">DHL</option>
-        <option value="Intern">Intern</option>
-        <option value="GLS">GLS</option>
+    <form id="main-form" class="hidden">
+      <h2>Palettenschein Generator</h2>
+      <label>Datum</label>
+      <input type="date" id="datum" required>
+
+      <label>Nr</label>
+      <input type="text" id="nr" required>
+
+      <label>Spedition</label>
+      <select id="spedition">
+        <option>DHL</option>
+        <option>GLS</option>
+        <option>Intern</option>
       </select>
-    </div>
 
-    <form id="form" class="grid gap-4">
-      <input type="date" id="datum" class="input hidden" required />
-      <input type="text" id="nr" placeholder="Nr." class="input" />
-      <input type="text" id="spedition" placeholder="Spedition" class="input" required />
-      <input type="text" id="empfaenger" placeholder="Kunde/Empfänger" class="input" />
-      <input type="text" id="lieferant" placeholder="Lieferant" class="input" />
-      <input type="text" id="lieferschein" placeholder="Lieferschein-Nr." class="input" required />
-      <input type="number" id="euro" placeholder="Europaletten" class="input" required />
-      <input type="number" id="einweg" placeholder="Einwegpaletten" class="input" required />
-      <input type="text" id="sonstiges" placeholder="Sonstiger Hinweis" class="input" />
+      <label>Kunde / Empfänger</label>
+      <input type="text" id="empfaenger">
 
-      <div>
-        <label class="block font-semibold">Unterschrift Fahrer:</label>
-        <canvas id="sign-fahrer" class="w-full h-32 bg-white"></canvas>
-        <button type="button" onclick="clearCanvas('sign-fahrer')" class="text-sm text-blue-600 mt-1">Signatur löschen</button>
-      </div>
+      <label>Lieferant</label>
+      <input type="text" id="lieferant">
 
-      <div>
-        <label class="block font-semibold">Unterschrift d-log:</label>
-        <canvas id="sign-dlog" class="w-full h-32 bg-white"></canvas>
-        <button type="button" onclick="clearCanvas('sign-dlog')" class="text-sm text-blue-600 mt-1">Signatur löschen</button>
-      </div>
+      <label>Lieferschein-Nr.</label>
+      <input type="text" id="lieferschein" required>
 
-      <button type="submit" class="bg-blue-600 text-white py-2 rounded">PDF Erstellen</button>
+      <label>Europaletten</label>
+      <input type="number" id="euro" required>
+
+      <label>Einwegpaletten</label>
+      <input type="number" id="einweg" required>
+
+      <label>Sonstiger Hinweis</label>
+      <input type="text" id="sonstiges">
+
+      <label>Unterschrift</label>
+      <canvas id="sign" width="300" height="100"></canvas>
+      <button type="button" onclick="clearCanvas()">Signatur löschen</button>
+
+      <button type="submit">PDF + Excel Erstellen</button>
     </form>
   </div>
 
   <script>
-    const { jsPDF } = window.jspdf;
+    const PASSWORD = "Dlog2025";
 
-    function generateTimestamp() {
-      const now = new Date();
-      const pad = (n) => n.toString().padStart(2, '0');
-      return `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-    }
-
-    function updateBerlinClock() {
-      const date = new Date();
-      const options = {
-        timeZone: "Europe/Berlin",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-      };
-      const berlinTime = new Intl.DateTimeFormat("de-DE", options).format(date);
-      document.getElementById("top-date-time").textContent = berlinTime;
-      const [d, m, y] = berlinTime.split(",")[0].split(".");
-      document.getElementById("datum").value = `${y}-${m}-${d}`;
-    }
-
-    function handleCompanyChange() {
-      const company = document.getElementById("company").value;
-      const nrField = document.getElementById("nr");
-      const spedition = document.getElementById("spedition");
-
-      if (company === "GLS") {
-        nrField.removeAttribute("readonly");
-        nrField.value = "";
-        spedition.setAttribute("readonly", "true");
-        spedition.value = "GLS";
-      } else if (company === "DHL") {
-        nrField.setAttribute("readonly", "true");
-        nrField.value = generateTimestamp();
-        spedition.setAttribute("readonly", "true");
-        spedition.value = "DHL";
+    function checkPassword() {
+      const pw = document.getElementById("password-input").value;
+      if (pw === PASSWORD) {
+        document.getElementById("login-box").style.display = "none";
+        document.getElementById("main-form").classList.remove("hidden");
       } else {
-        nrField.setAttribute("readonly", "true");
-        nrField.value = generateTimestamp();
-        spedition.removeAttribute("readonly");
-        spedition.value = "";
+        document.getElementById("login-error").style.display = "block";
       }
     }
 
-    function initDraw(canvasId) {
-      const canvas = document.getElementById(canvasId);
-      const ctx = canvas.getContext("2d");
-      let drawing = false;
+    // Signature drawing
+    const canvas = document.getElementById("sign");
+    const ctx = canvas.getContext("2d");
+    let drawing = false;
 
-      canvas.addEventListener("mousedown", (e) => {
-        drawing = true;
-        ctx.beginPath();
-        ctx.moveTo(e.offsetX, e.offsetY);
-      });
-      canvas.addEventListener("mousemove", (e) => {
-        if (drawing) {
-          ctx.lineTo(e.offsetX, e.offsetY);
-          ctx.stroke();
-        }
-      });
-      canvas.addEventListener("mouseup", () => (drawing = false));
-      canvas.addEventListener("mouseout", () => (drawing = false));
+    canvas.addEventListener("mousedown", e => {
+      drawing = true;
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
+    });
+    canvas.addEventListener("mousemove", e => {
+      if (!drawing) return;
+      ctx.lineTo(e.offsetX, e.offsetY);
+      ctx.stroke();
+    });
+    canvas.addEventListener("mouseup", () => drawing = false);
+    canvas.addEventListener("mouseout", () => drawing = false);
 
-      canvas.addEventListener("touchstart", (e) => {
-        const touch = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-        drawing = true;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-      });
-      canvas.addEventListener("touchmove", (e) => {
-        if (!drawing) return;
-        const touch = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        e.preventDefault();
-      });
-      canvas.addEventListener("touchend", () => {
-        drawing = false;
-      });
-    }
-
-    function getCanvasData(id) {
-      return document.getElementById(id).toDataURL("image/png");
-    }
-
-    function clearCanvas(id) {
-      const canvas = document.getElementById(id);
-      const ctx = canvas.getContext("2d");
+    function clearCanvas() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    document.getElementById("form").addEventListener("submit", function (e) {
+    // Submit event
+    document.getElementById("main-form").addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const entry = {
+      const data = {
         Datum: document.getElementById("datum").value,
         Nr: document.getElementById("nr").value,
         Spedition: document.getElementById("spedition").value,
@@ -177,54 +135,36 @@
         "Lieferschein-Nr.": document.getElementById("lieferschein").value,
         Europaletten: document.getElementById("euro").value,
         Einwegpaletten: document.getElementById("einweg").value,
-        "Sonstiger Hinweis": document.getElementById("sonstiges").value,
-        FahrerSign: getCanvasData("sign-fahrer"),
-        DLogSign: getCanvasData("sign-dlog")
+        "Sonstiger Hinweis": document.getElementById("sonstiges").value
       };
 
-      const doc = new jsPDF();
-      doc.setFont("Helvetica");
+      const signature = canvas.toDataURL("image/png");
 
+      // PDF
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(14);
       let y = 20;
-      doc.setFontSize(16);
       doc.text("Palettenschein", 105, y, { align: "center" });
       y += 10;
-      doc.setFontSize(12);
-
-      for (const [key, value] of Object.entries(entry)) {
-        if (key === "FahrerSign" || key === "DLogSign") continue;
-        if (key === "Datum" && value) {
-          const [y_, m, d] = value.split("-");
-          doc.text(`${key}: ${d}.${m}.${y_}`, 20, y);
-        } else {
-          doc.text(`${key}: ${value}`, 20, y);
-        }
+      for (const [k, v] of Object.entries(data)) {
+        doc.text(`${k}: ${v}`, 20, y);
         y += 8;
       }
+      doc.addImage(signature, "PNG", 20, y, 80, 30);
+      doc.text("Unterschrift", 20, y + 35);
+      doc.save(`Palettenschein_${data.Nr}.pdf`);
 
-      if (entry.FahrerSign) {
-        doc.addImage(entry.FahrerSign, "PNG", 20, y, 60, 20);
-        doc.text("Unterschrift Fahrer", 20, y + 25);
-      }
-      if (entry.DLogSign) {
-        doc.addImage(entry.DLogSign, "PNG", 110, y, 60, 20);
-        doc.text("Unterschrift d-log", 110, y + 25);
-      }
+      // Excel
+      const ws = XLSX.utils.json_to_sheet([data]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Palettenschein");
+      XLSX.writeFile(wb, `Palettenschein_${data.Nr}.xlsx`);
 
-      doc.save(`Palettenschein_${entry.Nr}.pdf`);
-      document.getElementById("form").reset();
-      clearCanvas("sign-fahrer");
-      clearCanvas("sign-dlog");
-      handleCompanyChange();
+      alert("PDF und Excel erfolgreich erstellt.");
+      document.getElementById("main-form").reset();
+      clearCanvas();
     });
-
-    window.onload = function () {
-      updateBerlinClock();
-      setInterval(updateBerlinClock, 1000);
-      handleCompanyChange();
-      initDraw("sign-fahrer");
-      initDraw("sign-dlog");
-    };
   </script>
 </body>
 </html>
