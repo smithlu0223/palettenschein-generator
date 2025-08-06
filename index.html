@@ -82,11 +82,11 @@
 
       <label>Unterschrift Fahrer</label>
       <canvas id="sign-fahrer" width="300" height="100"></canvas>
-      <button type="button" onclick="clearCanvas('sign-fahrer')">Signatur löschen</button>
+      <button type="button" onclick="clearCanvas('sign-fahrer')">Signatur Fahrer löschen</button>
 
       <label>Unterschrift d-log</label>
       <canvas id="sign-dlog" width="300" height="100"></canvas>
-      <button type="button" onclick="clearCanvas('sign-dlog')">Signatur löschen</button>
+      <button type="button" onclick="clearCanvas('sign-dlog')">Signatur d-log löschen</button>
 
       <button type="submit">PDF + Excel Erstellen</button>
     </form>
@@ -100,6 +100,8 @@
       if (pw === PASSWORD) {
         document.getElementById("login-box").style.display = "none";
         document.getElementById("main-form").classList.remove("hidden");
+        initCanvas("sign-fahrer");
+        initCanvas("sign-dlog");
       } else {
         document.getElementById("login-error").style.display = "block";
       }
@@ -110,41 +112,44 @@
       const ctx = canvas.getContext("2d");
       let drawing = false;
 
-      canvas.addEventListener("mousedown", e => {
+      const start = (e) => {
         drawing = true;
+        const pos = getPosition(e, canvas);
         ctx.beginPath();
-        ctx.moveTo(e.offsetX, e.offsetY);
-      });
+        ctx.moveTo(pos.x, pos.y);
+      };
 
-      canvas.addEventListener("mousemove", e => {
+      const draw = (e) => {
         if (!drawing) return;
-        ctx.lineTo(e.offsetX, e.offsetY);
+        const pos = getPosition(e, canvas);
+        ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
-      });
+      };
 
-      canvas.addEventListener("mouseup", () => drawing = false);
-      canvas.addEventListener("mouseout", () => drawing = false);
+      const stop = () => drawing = false;
 
-      // Mobile (touch)
-      canvas.addEventListener("touchstart", e => {
+      canvas.addEventListener("mousedown", start);
+      canvas.addEventListener("mousemove", draw);
+      canvas.addEventListener("mouseup", stop);
+      canvas.addEventListener("mouseout", stop);
+
+      canvas.addEventListener("touchstart", (e) => {
         e.preventDefault();
-        const touch = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        ctx.beginPath();
-        ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
-        drawing = true;
+        start(e.touches[0]);
       });
-
-      canvas.addEventListener("touchmove", e => {
+      canvas.addEventListener("touchmove", (e) => {
         e.preventDefault();
-        if (!drawing) return;
-        const touch = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
-        ctx.stroke();
+        draw(e.touches[0]);
       });
+      canvas.addEventListener("touchend", stop);
+    }
 
-      canvas.addEventListener("touchend", () => drawing = false);
+    function getPosition(e, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
     }
 
     function clearCanvas(id) {
@@ -156,12 +161,6 @@
     function getSignatureData(id) {
       return document.getElementById(id).toDataURL("image/png");
     }
-
-    // 初始化两个签名板
-    window.onload = () => {
-      initCanvas("sign-fahrer");
-      initCanvas("sign-dlog");
-    };
 
     document.getElementById("main-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -203,7 +202,6 @@
       const filename = `Palettenschein Nr ${data.Nr}`;
       doc.save(`${filename}.pdf`);
 
-      // Excel
       const ws = XLSX.utils.json_to_sheet([data]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Palettenschein");
