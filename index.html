@@ -105,9 +105,6 @@
       }
     }
 
-    // 初始化两个签名板
-    ['sign-fahrer', 'sign-dlog'].forEach(id => initCanvas(id));
-
     function initCanvas(id) {
       const canvas = document.getElementById(id);
       const ctx = canvas.getContext("2d");
@@ -118,13 +115,36 @@
         ctx.beginPath();
         ctx.moveTo(e.offsetX, e.offsetY);
       });
+
       canvas.addEventListener("mousemove", e => {
         if (!drawing) return;
         ctx.lineTo(e.offsetX, e.offsetY);
         ctx.stroke();
       });
+
       canvas.addEventListener("mouseup", () => drawing = false);
       canvas.addEventListener("mouseout", () => drawing = false);
+
+      // Mobile (touch)
+      canvas.addEventListener("touchstart", e => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        ctx.beginPath();
+        ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+        drawing = true;
+      });
+
+      canvas.addEventListener("touchmove", e => {
+        e.preventDefault();
+        if (!drawing) return;
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+        ctx.stroke();
+      });
+
+      canvas.addEventListener("touchend", () => drawing = false);
     }
 
     function clearCanvas(id) {
@@ -136,6 +156,12 @@
     function getSignatureData(id) {
       return document.getElementById(id).toDataURL("image/png");
     }
+
+    // 初始化两个签名板
+    window.onload = () => {
+      initCanvas("sign-fahrer");
+      initCanvas("sign-dlog");
+    };
 
     document.getElementById("main-form").addEventListener("submit", async (e) => {
       e.preventDefault();
