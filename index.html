@@ -35,6 +35,7 @@
     button:hover { opacity: 0.9; }
     .container { max-width: 400px; width: 100%; }
     label { display: block; margin-top: 10px; font-weight: bold; }
+    #download-buttons button { margin: 5px 0; }
   </style>
 </head>
 <body>
@@ -91,12 +92,19 @@
       <canvas id="sign-dlog" width="300" height="100"></canvas>
       <button type="button" onclick="clearCanvas('sign-dlog')">Signatur d-log löschen</button>
 
-      <button type="submit">PDF + Excel Erstellen</button>
+      <button type="submit">PDF + Excel erzeugen</button>
     </form>
+
+    <div id="download-buttons" class="hidden">
+      <h3>Downloads:</h3>
+      <button id="download-pdf">PDF Herunterladen</button>
+      <button id="download-excel">Excel Herunterladen</button>
+    </div>
   </div>
 
   <script>
     const PASSWORD = "Dlog2025";
+    let pdfBlob, excelBlob, filename;
 
     function checkPassword() {
       const pw = document.getElementById("password-input").value;
@@ -105,7 +113,7 @@
         document.getElementById("main-form").classList.remove("hidden");
         initCanvas("sign-fahrer");
         initCanvas("sign-dlog");
-        handleCompanyChange(); // 初始化逻辑
+        handleCompanyChange();
       } else {
         document.getElementById("login-error").style.display = "block";
       }
@@ -146,8 +154,8 @@
       } else if (company === "Intern") {
         nrField.setAttribute("readonly", true);
         nrField.value = timestamp;
-        speditionField.removeAttribute("readonly"); // ✅ 可编辑
-        speditionField.value = ""; // ✅ 清空
+        speditionField.removeAttribute("readonly");
+        speditionField.value = "";
       }
 
       const berlin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
@@ -161,44 +169,31 @@
       const canvas = document.getElementById(id);
       const ctx = canvas.getContext("2d");
       let drawing = false;
-
       const start = (e) => {
         drawing = true;
         const pos = getPosition(e, canvas);
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
       };
-
       const draw = (e) => {
         if (!drawing) return;
         const pos = getPosition(e, canvas);
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
       };
-
       const stop = () => drawing = false;
-
       canvas.addEventListener("mousedown", start);
       canvas.addEventListener("mousemove", draw);
       canvas.addEventListener("mouseup", stop);
       canvas.addEventListener("mouseout", stop);
-      canvas.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        start(e.touches[0]);
-      });
-      canvas.addEventListener("touchmove", (e) => {
-        e.preventDefault();
-        draw(e.touches[0]);
-      });
+      canvas.addEventListener("touchstart", (e) => { e.preventDefault(); start(e.touches[0]); });
+      canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e.touches[0]); });
       canvas.addEventListener("touchend", stop);
     }
 
     function getPosition(e, canvas) {
       const rect = canvas.getBoundingClientRect();
-      return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-      };
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
 
     function clearCanvas(id) {
@@ -213,26 +208,23 @@
 
     document.getElementById("main-form").addEventListener("submit", async (e) => {
       e.preventDefault();
-
       const data = {
         Datum: document.getElementById("datum").value,
         Nr: document.getElementById("nr").value,
         Spedition: document.getElementById("spedition").value,
-        "Kunde/Empfänger": document.getElementById("empfaenger").value,
+        Empfaenger: document.getElementById("empfaenger").value,
         Lieferant: document.getElementById("lieferant").value,
-        "Lieferschein-Nr.": document.getElementById("lieferschein").value,
+        Lieferschein: document.getElementById("lieferschein").value,
         Europaletten: document.getElementById("euro").value,
         Einwegpaletten: document.getElementById("einweg").value,
-        "Sonstiger Hinweis": document.getElementById("sonstiges").value
+        Hinweis: document.getElementById("sonstiges").value
       };
-
       const signFahrer = getSignatureData("sign-fahrer");
       const signDlog = getSignatureData("sign-dlog");
 
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       let y = 20;
-
       doc.setFontSize(16);
       doc.text("Palettenschein", 105, y, { align: "center" });
       y += 10;
@@ -241,7 +233,6 @@
         doc.text(`${k}: ${v}`, 20, y);
         y += 8;
       }
-
       doc.addImage(signFahrer, "PNG", 20, y, 60, 25);
       doc.text("Unterschrift Fahrer", 20, y + 30);
       doc.addImage(signDlog, "PNG", 110, y, 60, 25);
@@ -249,20 +240,30 @@
 
       let nr = data.Nr?.trim() || generateBerlinTimestamp();
       nr = nr.replace(/[\\/:*?"<>|]/g, "-");
-      const filename = `Palettenschein Nr ${nr}`;
-
-      doc.save(`${filename}.pdf`);
+      filename = `Palettenschein Nr ${nr}`;
+      pdfBlob = doc.output("blob");
 
       const ws = XLSX.utils.json_to_sheet([data]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Palettenschein");
-      XLSX.writeFile(wb, `${filename}.xlsx`);
+      const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      excelBlob = new Blob([wbout], { type: "application/octet-stream" });
 
-      alert("PDF und Excel erfolgreich erstellt.");
-      document.getElementById("main-form").reset();
-      clearCanvas("sign-fahrer");
-      clearCanvas("sign-dlog");
-      handleCompanyChange(); // 重置初始化
+      document.getElementById("download-buttons").classList.remove("hidden");
+    });
+
+    document.getElementById("download-pdf").addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(pdfBlob);
+      link.download = `${filename}.pdf`;
+      link.click();
+    });
+
+    document.getElementById("download-excel").addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(excelBlob);
+      link.download = `${filename}.xlsx`;
+      link.click();
     });
   </script>
 </body>
