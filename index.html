@@ -35,7 +35,7 @@
     button:hover { opacity: 0.9; }
     .container { max-width: 400px; width: 100%; }
     label { display: block; margin-top: 10px; font-weight: bold; }
-    #download-buttons button { margin: 5px 0; }
+    #download-buttons button { margin: 5px 0; display: block; }
   </style>
 </head>
 <body>
@@ -92,13 +92,13 @@
       <canvas id="sign-dlog" width="300" height="100"></canvas>
       <button type="button" onclick="clearCanvas('sign-dlog')">Signatur d-log löschen</button>
 
-      <button type="submit">PDF + Excel erzeugen</button>
+      <button type="submit">Daten Erzeugen</button>
     </form>
 
     <div id="download-buttons" class="hidden">
       <h3>Downloads:</h3>
-      <button id="download-pdf">1️⃣ PDF Herunterladen</button>
-      <button id="download-excel" disabled>2️⃣ Excel Herunterladen</button>
+      <button id="download-pdf">⬇️ PDF Herunterladen</button>
+      <button id="download-excel" disabled>⬇️ Excel Herunterladen</button>
     </div>
   </div>
 
@@ -258,7 +258,6 @@
       link.href = URL.createObjectURL(pdfBlob);
       link.download = `${filename}.pdf`;
       link.click();
-      // Enable Excel button
       document.getElementById("download-excel").disabled = false;
     });
 
@@ -267,10 +266,7 @@
       link.href = URL.createObjectURL(excelBlob);
       link.download = `${filename}.xlsx`;
       link.click();
-      // Refresh after download
-      setTimeout(() => {
-        location.reload();
-      }, 1000);
+      setTimeout(() => location.reload(), 1000);
     });
   </script>
 </body>
