@@ -105,7 +105,7 @@
         document.getElementById("main-form").classList.remove("hidden");
         initCanvas("sign-fahrer");
         initCanvas("sign-dlog");
-        handleCompanyChange(); // 初始化 Nr 和 Spedition
+        handleCompanyChange(); // 初始化逻辑
       } else {
         document.getElementById("login-error").style.display = "block";
       }
@@ -131,19 +131,25 @@
       const company = document.getElementById("company").value;
       const nrField = document.getElementById("nr");
       const speditionField = document.getElementById("spedition");
+      const timestamp = generateBerlinTimestamp();
 
       if (company === "GLS") {
         nrField.removeAttribute("readonly");
         nrField.value = "";
+        speditionField.setAttribute("readonly", true);
         speditionField.value = "GLS";
-      } else {
-        const timestamp = generateBerlinTimestamp();
+      } else if (company === "DHL") {
         nrField.setAttribute("readonly", true);
         nrField.value = timestamp;
-        speditionField.value = company;
+        speditionField.setAttribute("readonly", true);
+        speditionField.value = "DHL";
+      } else if (company === "Intern") {
+        nrField.setAttribute("readonly", true);
+        nrField.value = timestamp;
+        speditionField.removeAttribute("readonly");
+        speditionField.value = "";
       }
 
-      // 同步柏林时间作为默认日期
       const berlin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
       const yyyy = berlin.getFullYear();
       const mm = String(berlin.getMonth() + 1).padStart(2, "0");
@@ -257,7 +263,7 @@
       document.getElementById("main-form").reset();
       clearCanvas("sign-fahrer");
       clearCanvas("sign-dlog");
-      handleCompanyChange(); // 重置时同步编号
+      handleCompanyChange(); // 重置后重新填入
     });
   </script>
 </body>
