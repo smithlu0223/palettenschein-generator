@@ -146,8 +146,8 @@
       } else if (company === "Intern") {
         nrField.setAttribute("readonly", true);
         nrField.value = timestamp;
-        speditionField.removeAttribute("readonly");
-        speditionField.value = "";
+        speditionField.removeAttribute("readonly"); // ✅ 可编辑
+        speditionField.value = ""; // ✅ 清空
       }
 
       const berlin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
@@ -182,7 +182,6 @@
       canvas.addEventListener("mousemove", draw);
       canvas.addEventListener("mouseup", stop);
       canvas.addEventListener("mouseout", stop);
-
       canvas.addEventListener("touchstart", (e) => {
         e.preventDefault();
         start(e.touches[0]);
@@ -263,7 +262,7 @@
       document.getElementById("main-form").reset();
       clearCanvas("sign-fahrer");
       clearCanvas("sign-dlog");
-      handleCompanyChange(); // 重置后重新填入
+      handleCompanyChange(); // 重置初始化
     });
   </script>
 </body>
