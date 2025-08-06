@@ -105,7 +105,7 @@
         document.getElementById("main-form").classList.remove("hidden");
         initCanvas("sign-fahrer");
         initCanvas("sign-dlog");
-        handleCompanyChange(); // 初次加载
+        handleCompanyChange(); // 初始化 Nr 和 Spedition
       } else {
         document.getElementById("login-error").style.display = "block";
       }
@@ -130,23 +130,21 @@
     function handleCompanyChange() {
       const company = document.getElementById("company").value;
       const nrField = document.getElementById("nr");
-      const spedition = document.getElementById("spedition");
+      const speditionField = document.getElementById("spedition");
 
       if (company === "GLS") {
         nrField.removeAttribute("readonly");
         nrField.value = "";
-        spedition.value = "GLS";
+        speditionField.value = "GLS";
       } else {
         const timestamp = generateBerlinTimestamp();
         nrField.setAttribute("readonly", true);
         nrField.value = timestamp;
-        spedition.value = company;
+        speditionField.value = company;
       }
 
-      // 设置日期字段同步柏林时间
-      const now = new Date();
-      const offset = now.getTimezoneOffset();
-      const berlin = new Date(now.getTime() + (offset + 120) * 60000); // UTC+2
+      // 同步柏林时间作为默认日期
+      const berlin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
       const yyyy = berlin.getFullYear();
       const mm = String(berlin.getMonth() + 1).padStart(2, "0");
       const dd = String(berlin.getDate()).padStart(2, "0");
@@ -241,7 +239,6 @@
 
       doc.addImage(signFahrer, "PNG", 20, y, 60, 25);
       doc.text("Unterschrift Fahrer", 20, y + 30);
-
       doc.addImage(signDlog, "PNG", 110, y, 60, 25);
       doc.text("Unterschrift d-log", 110, y + 30);
 
@@ -260,7 +257,7 @@
       document.getElementById("main-form").reset();
       clearCanvas("sign-fahrer");
       clearCanvas("sign-dlog");
-      handleCompanyChange();
+      handleCompanyChange(); // 重置时同步编号
     });
   </script>
 </body>
