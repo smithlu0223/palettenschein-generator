@@ -40,7 +40,7 @@
 </head>
 <body>
   <div class="container">
-    <div id="login-box">
+    <div id="login-box" class="hidden">
       <h2>🔐 Passwort</h2>
       <input type="password" id="password-input" placeholder="Gib das Passwort ein" />
       <button onclick="checkPassword()">Login</button>
@@ -106,9 +106,21 @@
     const PASSWORD = "Dlog2025";
     let pdfBlob, excelBlob, filename;
 
+    window.onload = () => {
+      if (localStorage.getItem("authenticated") === "true") {
+        document.getElementById("main-form").classList.remove("hidden");
+        initCanvas("sign-fahrer");
+        initCanvas("sign-dlog");
+        handleCompanyChange();
+      } else {
+        document.getElementById("login-box").classList.remove("hidden");
+      }
+    };
+
     function checkPassword() {
       const pw = document.getElementById("password-input").value;
       if (pw === PASSWORD) {
+        localStorage.setItem("authenticated", "true");
         document.getElementById("login-box").style.display = "none";
         document.getElementById("main-form").classList.remove("hidden");
         initCanvas("sign-fahrer");
@@ -121,14 +133,7 @@
 
     function generateBerlinTimestamp() {
       const date = new Date();
-      const options = {
-        timeZone: "Europe/Berlin",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
-      };
+      const options = { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" };
       const berlinTime = new Intl.DateTimeFormat("de-DE", options).format(date);
       const [d, m, y] = berlinTime.split(",")[0].split(".");
       const [h, min] = berlinTime.split(",")[1].trim().split(":");
@@ -169,18 +174,8 @@
       const canvas = document.getElementById(id);
       const ctx = canvas.getContext("2d");
       let drawing = false;
-      const start = (e) => {
-        drawing = true;
-        const pos = getPosition(e, canvas);
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-      };
-      const draw = (e) => {
-        if (!drawing) return;
-        const pos = getPosition(e, canvas);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-      };
+      const start = (e) => { drawing = true; const pos = getPosition(e, canvas); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
+      const draw = (e) => { if (!drawing) return; const pos = getPosition(e, canvas); ctx.lineTo(pos.x, pos.y); ctx.stroke(); };
       const stop = () => drawing = false;
       canvas.addEventListener("mousedown", start);
       canvas.addEventListener("mousemove", draw);
