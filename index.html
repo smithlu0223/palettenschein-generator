@@ -2,6 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Palettenschein Generator</title>
   <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
@@ -10,14 +11,15 @@
       background-color: #111;
       color: #eee;
       padding: 2rem;
+      font-size: 18px;   /* 默认字体大一点 */
     }
     .hidden { display: none; }
     input, select, button, canvas {
-      padding: 8px;
-      margin-bottom: 10px;
+      padding: 10px;
+      margin-bottom: 12px;
       width: 100%;
-      font-size: 16px;
-      border-radius: 5px;
+      font-size: 18px;
+      border-radius: 6px;
       border: 1px solid #ccc;
     }
     canvas { background: white; border: 1px solid #888; }
@@ -29,11 +31,23 @@
     }
     button:hover { opacity: 0.9; }
     .container { 
-      width: 100%;      /* ✅ 改成全宽 */
+      width: 100%;      /* 占满屏幕宽度 */
       padding: 1rem; 
     }
-    label { display: block; margin-top: 10px; font-weight: bold; }
-    #download-buttons button { margin: 5px 0; display: block; }
+    label { display: block; margin-top: 12px; font-weight: bold; }
+    #download-buttons button { margin: 6px 0; display: block; }
+
+    /* 手机适配 */
+    @media (max-width: 600px) {
+      body {
+        font-size: 20px;  /* 手机再放大一点 */
+        padding: 1rem;
+      }
+      input, select, button, canvas {
+        font-size: 20px;
+        padding: 12px;
+      }
+    }
   </style>
 </head>
 <body>
