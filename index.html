@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>Palettenschein Generator</title>
   <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
@@ -72,8 +71,12 @@
       <label for="lieferant">Lieferant</label>
       <input type="text" id="lieferant" />
 
-      <label for="lieferschein">Lieferschein-Nr.</label>
-      <input type="text" id="lieferschein" required />
+      <!-- 修改后的 WA/WE 下拉框 -->
+      <label for="wawe">WA/WE</label>
+      <select id="wawe" required>
+        <option value="WA">WA</option>
+        <option value="WE">WE</option>
+      </select>
 
       <label for="euro">Europaletten</label>
       <input type="number" id="euro" required />
@@ -98,13 +101,13 @@
     <div id="download-buttons" class="hidden">
       <h3>Downloads:</h3>
       <button id="download-pdf">⬇️ PDF Herunterladen</button>
-      <button id="download-excel" disabled>⬇️ Excel Herunterladen</button>
+      <button id="finish-btn" class="hidden">✅ Fertig</button>
     </div>
   </div>
 
   <script>
     const PASSWORD = "Dlog2025";
-    let pdfBlob, excelBlob, filename;
+    let pdfBlob, filename;
 
     window.onload = () => {
       if (localStorage.getItem("authenticated") === "true") {
@@ -201,7 +204,7 @@
       return document.getElementById(id).toDataURL("image/png");
     }
 
-    document.getElementById("main-form").addEventListener("submit", async (e) => {
+    document.getElementById("main-form").addEventListener("submit", (e) => {
       e.preventDefault();
       const data = {
         Datum: document.getElementById("datum").value,
@@ -209,7 +212,7 @@
         Spedition: document.getElementById("spedition").value,
         Empfaenger: document.getElementById("empfaenger").value,
         Lieferant: document.getElementById("lieferant").value,
-        Lieferschein: document.getElementById("lieferschein").value,
+        WA_WE: document.getElementById("wawe").value,   // 修改后的字段
         Europaletten: document.getElementById("euro").value,
         Einwegpaletten: document.getElementById("einweg").value,
         Hinweis: document.getElementById("sonstiges").value
@@ -238,14 +241,7 @@
       filename = `Palettenschein Nr ${nr}`;
       pdfBlob = doc.output("blob");
 
-      const ws = XLSX.utils.json_to_sheet([data]);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Palettenschein");
-      const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-      excelBlob = new Blob([wbout], { type: "application/octet-stream" });
-
       document.getElementById("download-buttons").classList.remove("hidden");
-      document.getElementById("download-excel").disabled = true;
     });
 
     document.getElementById("download-pdf").addEventListener("click", () => {
@@ -253,15 +249,15 @@
       link.href = URL.createObjectURL(pdfBlob);
       link.download = `${filename}.pdf`;
       link.click();
-      document.getElementById("download-excel").disabled = false;
+      document.getElementById("finish-btn").classList.remove("hidden");
     });
 
-    document.getElementById("download-excel").addEventListener("click", () => {
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(excelBlob);
-      link.download = `${filename}.xlsx`;
-      link.click();
-      setTimeout(() => location.reload(), 1000);
+    document.getElementById("finish-btn").addEventListener("click", () => {
+      document.getElementById("main-form").reset();
+      clearCanvas("sign-fahrer");
+      clearCanvas("sign-dlog");
+      document.getElementById("download-buttons").classList.add("hidden");
+      document.getElementById("finish-btn").classList.add("hidden");
     });
   </script>
 </body>
