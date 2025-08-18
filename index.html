@@ -10,19 +10,25 @@
       font-family: sans-serif;
       background-color: #111;
       color: #eee;
-      padding: 2rem;
-      font-size: 18px;   /* 默认字体大一点 */
+      padding: 1rem;
+      font-size: 20px;   /* 默认字体更大 */
     }
     .hidden { display: none; }
     input, select, button, canvas {
-      padding: 10px;
-      margin-bottom: 12px;
+      padding: 12px;
+      margin-bottom: 14px;
       width: 100%;
-      font-size: 18px;
+      font-size: 20px;
       border-radius: 6px;
       border: 1px solid #ccc;
     }
-    canvas { background: white; border: 1px solid #888; }
+    canvas { 
+      background: white; 
+      border: 1px solid #888; 
+      width: 100%;     /* ✅ 宽度自适应 */
+      height: 150px;   /* ✅ 高度更大，适合签字 */
+      display: block;
+    }
     button {
       background-color: #2563eb;
       color: white;
@@ -31,7 +37,7 @@
     }
     button:hover { opacity: 0.9; }
     .container { 
-      width: 100%;      /* 占满屏幕宽度 */
+      width: 100%; 
       padding: 1rem; 
     }
     label { display: block; margin-top: 12px; font-weight: bold; }
@@ -40,12 +46,12 @@
     /* 手机适配 */
     @media (max-width: 600px) {
       body {
-        font-size: 20px;  /* 手机再放大一点 */
+        font-size: 22px;  /* 手机上再放大一点 */
         padding: 1rem;
       }
       input, select, button, canvas {
-        font-size: 20px;
-        padding: 12px;
+        font-size: 22px;
+        padding: 14px;
       }
     }
   </style>
@@ -84,7 +90,6 @@
       <label for="lieferant">Lieferant</label>
       <input type="text" id="lieferant" />
 
-      <!-- 修改后的 WA/WE 下拉框 -->
       <label for="wawe">WA/WE</label>
       <select id="wawe" required>
         <option value="WA">WA</option>
@@ -101,11 +106,11 @@
       <input type="text" id="sonstiges" />
 
       <label>Unterschrift Fahrer</label>
-      <canvas id="sign-fahrer" width="300" height="100"></canvas>
+      <canvas id="sign-fahrer"></canvas>
       <button type="button" onclick="clearCanvas('sign-fahrer')">Signatur Fahrer löschen</button>
 
       <label>Unterschrift d-log</label>
-      <canvas id="sign-dlog" width="300" height="100"></canvas>
+      <canvas id="sign-dlog"></canvas>
       <button type="button" onclick="clearCanvas('sign-dlog')">Signatur d-log löschen</button>
 
       <button type="submit">Daten Erzeugen</button>
@@ -189,22 +194,47 @@
     function initCanvas(id) {
       const canvas = document.getElementById(id);
       const ctx = canvas.getContext("2d");
+
+      // ✅ 自适应宽度和固定高度
+      canvas.width = canvas.offsetWidth;
+      canvas.height = 150;
+
       let drawing = false;
-      const start = (e) => { drawing = true; const pos = getPosition(e, canvas); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
-      const draw = (e) => { if (!drawing) return; const pos = getPosition(e, canvas); ctx.lineTo(pos.x, pos.y); ctx.stroke(); };
+
+      const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (e.clientX || e.touches[0].clientX) - rect.left,
+          y: (e.clientY || e.touches[0].clientY) - rect.top
+        };
+      };
+
+      const start = (e) => {
+        drawing = true;
+        const pos = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+      };
+
+      const draw = (e) => {
+        if (!drawing) return;
+        const pos = getPos(e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+      };
+
       const stop = () => drawing = false;
+
+      // 鼠标事件
       canvas.addEventListener("mousedown", start);
       canvas.addEventListener("mousemove", draw);
       canvas.addEventListener("mouseup", stop);
       canvas.addEventListener("mouseout", stop);
-      canvas.addEventListener("touchstart", (e) => { e.preventDefault(); start(e.touches[0]); });
-      canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e.touches[0]); });
-      canvas.addEventListener("touchend", stop);
-    }
 
-    function getPosition(e, canvas) {
-      const rect = canvas.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      // 触摸事件
+      canvas.addEventListener("touchstart", (e) => { e.preventDefault(); start(e); });
+      canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e); });
+      canvas.addEventListener("touchend", stop);
     }
 
     function clearCanvas(id) {
@@ -244,10 +274,10 @@
         doc.text(`${k}: ${v}`, 20, y);
         y += 8;
       }
-      doc.addImage(signFahrer, "PNG", 20, y, 60, 25);
-      doc.text("Unterschrift Fahrer", 20, y + 30);
-      doc.addImage(signDlog, "PNG", 110, y, 60, 25);
-      doc.text("Unterschrift d-log", 110, y + 30);
+      doc.addImage(signFahrer, "PNG", 20, y, 80, 40);
+      doc.text("Unterschrift Fahrer", 20, y + 45);
+      doc.addImage(signDlog, "PNG", 110, y, 80, 40);
+      doc.text("Unterschrift d-log", 110, y + 45);
 
       let nr = data.Nr?.trim() || generateBerlinTimestamp();
       nr = nr.replace(/[\\/:*?"<>|]/g, "-");
