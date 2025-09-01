@@ -2,149 +2,83 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Palettenschein Generator</title>
+  <script src="https://alcdn.msauth.net/browser/2.32.0/js/msal-browser.min.js"></script>
   <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
-    body {
-      font-family: sans-serif;
-      background-color: #111;
-      color: #eee;
-      padding: 1rem;
-      font-size: 20px;
-    }
-    input, select, button, canvas {
-      padding: 12px;
-      margin-bottom: 14px;
-      width: 100%;
-      font-size: 20px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    canvas { 
-      background: white; 
-      border: 1px solid #888; 
-      width: 100%; 
-      height: 150px;
-      display: block;
-    }
-    button {
-      background-color: #2563eb;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover { opacity: 0.9; }
-    .container { width: 100%; padding: 1rem; }
-    label { display: block; margin-top: 12px; font-weight: bold; }
-    #download-buttons button { margin: 6px 0; display: block; }
-    .hidden { display: none; }
+    body { font-family: sans-serif; padding: 20px; }
+    input, select, button, canvas { margin: 8px 0; width: 100%; padding: 8px; }
+    canvas { background: #fff; border: 1px solid #ccc; height: 150px; }
+    #download-buttons { margin-top: 20px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <form id="main-form">
-      <h2>Palettenschein Generator</h2>
+  <h2>Palettenschein Generator</h2>
 
-      <label for="company">Spedition wählen</label>
-      <select id="company" onchange="handleCompanyChange()" required>
-        <option value="DHL">DHL</option>
-        <option value="Intern">Intern</option>
-        <option value="GLS">GLS</option>
-      </select>
+  <form id="main-form">
+    <label>Nr</label>
+    <input type="text" id="nr" required />
 
-      <label for="nr">Nr</label>
-      <input type="text" id="nr" required readonly />
+    <label>Datum</label>
+    <input type="date" id="datum" required />
 
-      <label for="datum">Datum</label>
-      <input type="date" id="datum" required />
+    <label>Spedition</label>
+    <input type="text" id="spedition" required />
 
-      <label for="spedition">Spedition</label>
-      <input type="text" id="spedition" readonly />
+    <label>Empfänger</label>
+    <input type="text" id="empfaenger" />
 
-      <label for="empfaenger">Kunde / Empfänger</label>
-      <input type="text" id="empfaenger" />
+    <label>Lieferant</label>
+    <input type="text" id="lieferant" />
 
-      <label for="lieferant">Lieferant</label>
-      <input type="text" id="lieferant" />
+    <label>WA/WE</label>
+    <select id="wawe">
+      <option value="WA">WA</option>
+      <option value="WE">WE</option>
+    </select>
 
-      <label for="wawe">WA/WE</label>
-      <select id="wawe" required>
-        <option value="WA">WA</option>
-        <option value="WE">WE</option>
-      </select>
+    <label>Europaletten</label>
+    <input type="number" id="euro" />
 
-      <label for="euro">Europaletten</label>
-      <input type="number" id="euro" required />
+    <label>Einwegpaletten</label>
+    <input type="number" id="einweg" />
 
-      <label for="einweg">Einwegpaletten</label>
-      <input type="number" id="einweg" required />
+    <label>Hinweis</label>
+    <input type="text" id="hinweis" />
 
-      <label for="sonstiges">Sonstiger Hinweis</label>
-      <input type="text" id="sonstiges" />
+    <label>Unterschrift Fahrer</label>
+    <canvas id="sign-fahrer"></canvas>
 
-      <label>Unterschrift Fahrer</label>
-      <canvas id="sign-fahrer"></canvas>
-      <button type="button" onclick="clearCanvas('sign-fahrer')">Signatur Fahrer löschen</button>
+    <label>Unterschrift d-log</label>
+    <canvas id="sign-dlog"></canvas>
 
-      <label>Unterschrift d-log</label>
-      <canvas id="sign-dlog"></canvas>
-      <button type="button" onclick="clearCanvas('sign-dlog')">Signatur d-log löschen</button>
+    <button type="submit">✅ Speichern & PDF erzeugen</button>
+  </form>
 
-      <button type="submit">✅ Speichern & PDF erzeugen</button>
-    </form>
-
-    <div id="download-buttons" class="hidden">
-      <h3>Downloads:</h3>
-      <button id="download-pdf">⬇️ PDF Herunterladen</button>
-    </div>
+  <div id="download-buttons" style="display:none;">
+    <button id="download-pdf">⬇️ PDF Herunterladen</button>
   </div>
 
   <script>
-    // ⚡ 在这里粘贴 Power Automate 的 HTTP URL
-    const FLOW_URL = "PASTE-YOUR-FLOW-URL-HERE";
-
-    let pdfBlob, filename;
-
-    function generateBerlinTimestamp() {
-      const date = new Date();
-      const options = { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" };
-      const berlinTime = new Intl.DateTimeFormat("de-DE", options).format(date);
-      const [d, m, y] = berlinTime.split(",")[0].split(".");
-      const [h, min] = berlinTime.split(",")[1].trim().split(":");
-      return `${y}${m}${d}-${h}${min}`;
-    }
-
-    function handleCompanyChange() {
-      const company = document.getElementById("company").value;
-      const nrField = document.getElementById("nr");
-      const speditionField = document.getElementById("spedition");
-      const timestamp = generateBerlinTimestamp();
-
-      if (company === "GLS") {
-        nrField.removeAttribute("readonly");
-        nrField.value = "";
-        speditionField.setAttribute("readonly", true);
-        speditionField.value = "GLS";
-      } else if (company === "DHL") {
-        nrField.setAttribute("readonly", true);
-        nrField.value = timestamp;
-        speditionField.setAttribute("readonly", true);
-        speditionField.value = "DHL";
-      } else if (company === "Intern") {
-        nrField.setAttribute("readonly", true);
-        nrField.value = timestamp;
-        speditionField.removeAttribute("readonly");
-        speditionField.value = "";
+    // ------------------ MSAL 配置 ------------------
+    const msalConfig = {
+      auth: {
+        clientId: "HIER-DEIN-APP-ID", // ⚡ Azure 注册应用时生成的 Client ID
+        authority: "https://login.microsoftonline.com/common/",
+        redirectUri: window.location.origin
       }
+    };
+    const msalInstance = new msal.PublicClientApplication(msalConfig);
+    let accessToken = null;
 
-      const berlin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
-      const yyyy = berlin.getFullYear();
-      const mm = String(berlin.getMonth() + 1).padStart(2, "0");
-      const dd = String(berlin.getDate()).padStart(2, "0");
-      document.getElementById("datum").value = `${yyyy}-${mm}-${dd}`;
+    async function login() {
+      const result = await msalInstance.loginPopup({
+        scopes: ["Files.ReadWrite"]
+      });
+      accessToken = result.accessToken;
     }
 
+    // ------------------ Canvas 签名 ------------------
     function initCanvas(id) {
       const canvas = document.getElementById(id);
       const ctx = canvas.getContext("2d");
@@ -157,37 +91,53 @@
         return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
       };
 
-      const start = (e) => { drawing = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
-      const draw = (e) => { if (!drawing) return; const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); };
-      const stop = () => drawing = false;
-
-      canvas.addEventListener("mousedown", start);
-      canvas.addEventListener("mousemove", draw);
-      canvas.addEventListener("mouseup", stop);
-      canvas.addEventListener("mouseout", stop);
-      canvas.addEventListener("touchstart", (e) => { e.preventDefault(); start(e); });
-      canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e); });
-      canvas.addEventListener("touchend", stop);
+      canvas.addEventListener("mousedown", (e) => { drawing = true; ctx.beginPath(); ctx.moveTo(getPos(e).x, getPos(e).y); });
+      canvas.addEventListener("mousemove", (e) => { if (drawing) { const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); } });
+      canvas.addEventListener("mouseup", () => drawing = false);
+      canvas.addEventListener("mouseout", () => drawing = false);
+      canvas.addEventListener("touchstart", (e) => { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+      canvas.addEventListener("touchmove", (e) => { e.preventDefault(); if (drawing) { const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); } });
+      canvas.addEventListener("touchend", () => drawing = false);
     }
-
-    function clearCanvas(id) {
-      const canvas = document.getElementById(id);
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
     function getSignatureData(id) {
       return document.getElementById(id).toDataURL("image/png");
     }
+    initCanvas("sign-fahrer");
+    initCanvas("sign-dlog");
 
-    document.addEventListener("DOMContentLoaded", () => {
-      initCanvas("sign-fahrer");
-      initCanvas("sign-dlog");
-      handleCompanyChange();
-    });
+    // ------------------ CSV 处理 ------------------
+    function convertToCSVRow(data) {
+      return `${data.Nr},${data.Datum},${data.Spedition},${data.Empfaenger},${data.Lieferant},${data.WA_WE},${data.Europaletten},${data.Einwegpaletten},${data.Hinweis}\n`;
+    }
 
+    async function appendToCsvOnOneDrive(row) {
+      const filePath = "/Palettenschein/data.csv";
+
+      // 读取旧 CSV
+      const getUrl = `https://graph.microsoft.com/v1.0/me/drive/root:${filePath}:/content`;
+      const oldFile = await fetch(getUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const oldText = oldFile.ok ? await oldFile.text() : "Nr,Datum,Spedition,Empfaenger,Lieferant,WA_WE,Europaletten,Einwegpaletten,Hinweis\n";
+
+      // 拼接新行
+      const newText = oldText + row;
+
+      // 覆盖上传
+      const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:${filePath}:/content`;
+      await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: new Blob([newText], { type: "text/csv" })
+      });
+    }
+
+    // ------------------ 表单提交 ------------------
     document.getElementById("main-form").addEventListener("submit", async (e) => {
       e.preventDefault();
+
+      if (!accessToken) {
+        await login(); // 第一次需要登录微软账号
+      }
+
       const data = {
         Nr: document.getElementById("nr").value,
         Datum: document.getElementById("datum").value,
@@ -197,35 +147,24 @@
         WA_WE: document.getElementById("wawe").value,
         Europaletten: document.getElementById("euro").value,
         Einwegpaletten: document.getElementById("einweg").value,
-        Hinweis: document.getElementById("sonstiges").value,
+        Hinweis: document.getElementById("hinweis").value,
         SignFahrer: getSignatureData("sign-fahrer"),
         SignDlog: getSignatureData("sign-dlog")
       };
 
-      // 1️⃣ 发送数据到 Power Automate → Excel
-      try {
-        await fetch(FLOW_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
-        });
-        console.log("✅ Daten an Power Automate gesendet!");
-      } catch (err) {
-        console.error("❌ Fehler beim Senden:", err);
-      }
+      // 1️⃣ 追加到 CSV
+      const row = convertToCSVRow(data);
+      await appendToCsvOnOneDrive(row);
 
-      // 2️⃣ 本地生成 PDF
+      // 2️⃣ 生成 PDF
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-      let y = 20;
-      doc.setFontSize(16);
-      doc.text("Palettenschein", 105, y, { align: "center" });
-      y += 10;
-      doc.setFontSize(12);
+      doc.text("Palettenschein", 105, 20, { align: "center" });
+      let y = 30;
       for (const [k, v] of Object.entries(data)) {
         if (k !== "SignFahrer" && k !== "SignDlog") {
           doc.text(`${k}: ${v}`, 20, y);
-          y += 8;
+          y += 10;
         }
       }
       doc.addImage(data.SignFahrer, "PNG", 20, y, 80, 40);
@@ -233,17 +172,16 @@
       doc.addImage(data.SignDlog, "PNG", 110, y, 80, 40);
       doc.text("Unterschrift d-log", 110, y + 45);
 
-      filename = `Palettenschein-${data.Nr || Date.now()}`;
-      pdfBlob = doc.output("blob");
+      const pdfBlob = doc.output("blob");
+      const filename = `Palettenschein-${data.Nr}.pdf`;
 
-      document.getElementById("download-buttons").classList.remove("hidden");
-    });
-
-    document.getElementById("download-pdf").addEventListener("click", () => {
+      // 本地下载
       const link = document.createElement("a");
       link.href = URL.createObjectURL(pdfBlob);
-      link.download = `${filename}.pdf`;
+      link.download = filename;
       link.click();
+
+      document.getElementById("download-buttons").style.display = "block";
     });
   </script>
 </body>
