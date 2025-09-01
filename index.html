@@ -16,14 +16,21 @@
   <h2>Palettenschein Generator</h2>
 
   <form id="main-form">
+    <label for="company">Spedition wählen</label>
+    <select id="company" onchange="handleCompanyChange()" required>
+      <option value="DHL">DHL</option>
+      <option value="Intern">Intern</option>
+      <option value="GLS">GLS</option>
+    </select>
+
     <label>Nr</label>
-    <input type="text" id="nr" required />
+    <input type="text" id="nr" required readonly />
 
     <label>Datum</label>
     <input type="date" id="datum" required />
 
     <label>Spedition</label>
-    <input type="text" id="spedition" required />
+    <input type="text" id="spedition" readonly />
 
     <label>Empfänger</label>
     <input type="text" id="empfaenger" />
@@ -63,7 +70,7 @@
     // ------------------ MSAL 配置 ------------------
     const msalConfig = {
       auth: {
-        clientId: "HIER-DEIN-APP-ID", // ⚡ Azure 注册应用时生成的 Client ID
+        clientId: "HIER-DEIN-APP-ID", // ⚡ 在 Azure 注册应用时生成的 Client ID
         authority: "https://login.microsoftonline.com/common/",
         redirectUri: window.location.origin
       }
@@ -76,6 +83,47 @@
         scopes: ["Files.ReadWrite"]
       });
       accessToken = result.accessToken;
+    }
+
+    // ------------------ Nr & Spedition 逻辑 ------------------
+    function generateBerlinTimestamp() {
+      const date = new Date();
+      const options = { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" };
+      const berlinTime = new Intl.DateTimeFormat("de-DE", options).format(date);
+      const [d, m, y] = berlinTime.split(",")[0].split(".");
+      const [h, min] = berlinTime.split(",")[1].trim().split(":");
+      return `${y}${m}${d}-${h}${min}`;
+    }
+
+    function handleCompanyChange() {
+      const company = document.getElementById("company").value;
+      const nrField = document.getElementById("nr");
+      const speditionField = document.getElementById("spedition");
+      const timestamp = generateBerlinTimestamp();
+
+      if (company === "GLS") {
+        nrField.removeAttribute("readonly");
+        nrField.value = "";
+        speditionField.setAttribute("readonly", true);
+        speditionField.value = "GLS";
+      } else if (company === "DHL") {
+        nrField.setAttribute("readonly", true);
+        nrField.value = timestamp;
+        speditionField.setAttribute("readonly", true);
+        speditionField.value = "DHL";
+      } else if (company === "Intern") {
+        nrField.setAttribute("readonly", true);
+        nrField.value = timestamp;
+        speditionField.removeAttribute("readonly");
+        speditionField.value = "";
+      }
+
+      // 自动设置 Datum 为当天
+      const berlin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
+      const yyyy = berlin.getFullYear();
+      const mm = String(berlin.getMonth() + 1).padStart(2, "0");
+      const dd = String(berlin.getDate()).padStart(2, "0");
+      document.getElementById("datum").value = `${yyyy}-${mm}-${dd}`;
     }
 
     // ------------------ Canvas 签名 ------------------
@@ -104,6 +152,7 @@
     }
     initCanvas("sign-fahrer");
     initCanvas("sign-dlog");
+    handleCompanyChange();
 
     // ------------------ CSV 处理 ------------------
     function convertToCSVRow(data) {
@@ -112,16 +161,10 @@
 
     async function appendToCsvOnOneDrive(row) {
       const filePath = "/Palettenschein/data.csv";
-
-      // 读取旧 CSV
       const getUrl = `https://graph.microsoft.com/v1.0/me/drive/root:${filePath}:/content`;
       const oldFile = await fetch(getUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
       const oldText = oldFile.ok ? await oldFile.text() : "Nr,Datum,Spedition,Empfaenger,Lieferant,WA_WE,Europaletten,Einwegpaletten,Hinweis\n";
-
-      // 拼接新行
       const newText = oldText + row;
-
-      // 覆盖上传
       const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:${filePath}:/content`;
       await fetch(uploadUrl, {
         method: "PUT",
@@ -152,7 +195,7 @@
         SignDlog: getSignatureData("sign-dlog")
       };
 
-      // 1️⃣ 追加到 CSV
+      // 1️⃣ 写入 CSV
       const row = convertToCSVRow(data);
       await appendToCsvOnOneDrive(row);
 
@@ -174,8 +217,6 @@
 
       const pdfBlob = doc.output("blob");
       const filename = `Palettenschein-${data.Nr}.pdf`;
-
-      // 本地下载
       const link = document.createElement("a");
       link.href = URL.createObjectURL(pdfBlob);
       link.download = filename;
