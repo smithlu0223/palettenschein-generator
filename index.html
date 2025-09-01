@@ -11,9 +11,8 @@
       background-color: #111;
       color: #eee;
       padding: 1rem;
-      font-size: 20px;   /* 默认字体更大 */
+      font-size: 20px;
     }
-    .hidden { display: none; }
     input, select, button, canvas {
       padding: 12px;
       margin-bottom: 14px;
@@ -25,8 +24,8 @@
     canvas { 
       background: white; 
       border: 1px solid #888; 
-      width: 100%;     /* ✅ 宽度自适应 */
-      height: 150px;   /* ✅ 高度更大，适合签字 */
+      width: 100%; 
+      height: 150px;
       display: block;
     }
     button {
@@ -36,53 +35,24 @@
       cursor: pointer;
     }
     button:hover { opacity: 0.9; }
-    .container { 
-      width: 100%; 
-      padding: 1rem; 
-    }
+    .container { width: 100%; padding: 1rem; }
     label { display: block; margin-top: 12px; font-weight: bold; }
     #download-buttons button { margin: 6px 0; display: block; }
-
-    /* 手机适配 */
-    @media (max-width: 600px) {
-      body {
-        font-size: 22px;  /* 手机上再放大一点 */
-        padding: 1rem;
-      }
-      input, select, button, canvas {
-        font-size: 22px;
-        padding: 14px;
-      }
-    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div id="login-box" class="hidden">
-      <h2>🔐 Passwort</h2>
-      <input type="password" id="password-input" placeholder="Gib das Passwort ein" />
-      <button onclick="checkPassword()">Login</button>
-      <p id="login-error" style="color: red; display: none;">❌ Falsches Passwort!</p>
-    </div>
-
-    <form id="main-form" class="hidden">
+    <form id="main-form">
       <h2>Palettenschein Generator</h2>
 
-      <label for="company">Spedition wählen</label>
-      <select id="company" onchange="handleCompanyChange()" required>
-        <option value="DHL">DHL</option>
-        <option value="Intern">Intern</option>
-        <option value="GLS">GLS</option>
-      </select>
-
       <label for="nr">Nr</label>
-      <input type="text" id="nr" required readonly />
+      <input type="text" id="nr" required />
 
       <label for="datum">Datum</label>
       <input type="date" id="datum" required />
 
       <label for="spedition">Spedition</label>
-      <input type="text" id="spedition" readonly />
+      <input type="text" id="spedition" />
 
       <label for="empfaenger">Kunde / Empfänger</label>
       <input type="text" id="empfaenger" />
@@ -119,119 +89,33 @@
     <div id="download-buttons" class="hidden">
       <h3>Downloads:</h3>
       <button id="download-pdf">⬇️ PDF Herunterladen</button>
-      <button id="finish-btn" class="hidden">✅ Fertig</button>
     </div>
   </div>
 
   <script>
-    const PASSWORD = "Dlog2025";
+    const FLOW_URL = "⚡ 在这里粘贴你的 Power Automate HTTP POST URL ⚡";
     let pdfBlob, filename;
-
-    window.onload = () => {
-      if (localStorage.getItem("authenticated") === "true") {
-        document.getElementById("main-form").classList.remove("hidden");
-        initCanvas("sign-fahrer");
-        initCanvas("sign-dlog");
-        handleCompanyChange();
-      } else {
-        document.getElementById("login-box").classList.remove("hidden");
-      }
-    };
-
-    function checkPassword() {
-      const pw = document.getElementById("password-input").value;
-      if (pw === PASSWORD) {
-        localStorage.setItem("authenticated", "true");
-        document.getElementById("login-box").style.display = "none";
-        document.getElementById("main-form").classList.remove("hidden");
-        initCanvas("sign-fahrer");
-        initCanvas("sign-dlog");
-        handleCompanyChange();
-      } else {
-        document.getElementById("login-error").style.display = "block";
-      }
-    }
-
-    function generateBerlinTimestamp() {
-      const date = new Date();
-      const options = { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" };
-      const berlinTime = new Intl.DateTimeFormat("de-DE", options).format(date);
-      const [d, m, y] = berlinTime.split(",")[0].split(".");
-      const [h, min] = berlinTime.split(",")[1].trim().split(":");
-      return `${y}${m}${d}-${h}${min}`;
-    }
-
-    function handleCompanyChange() {
-      const company = document.getElementById("company").value;
-      const nrField = document.getElementById("nr");
-      const speditionField = document.getElementById("spedition");
-      const timestamp = generateBerlinTimestamp();
-
-      if (company === "GLS") {
-        nrField.removeAttribute("readonly");
-        nrField.value = "";
-        speditionField.setAttribute("readonly", true);
-        speditionField.value = "GLS";
-      } else if (company === "DHL") {
-        nrField.setAttribute("readonly", true);
-        nrField.value = timestamp;
-        speditionField.setAttribute("readonly", true);
-        speditionField.value = "DHL";
-      } else if (company === "Intern") {
-        nrField.setAttribute("readonly", true);
-        nrField.value = timestamp;
-        speditionField.removeAttribute("readonly");
-        speditionField.value = "";
-      }
-
-      const berlin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
-      const yyyy = berlin.getFullYear();
-      const mm = String(berlin.getMonth() + 1).padStart(2, "0");
-      const dd = String(berlin.getDate()).padStart(2, "0");
-      document.getElementById("datum").value = `${yyyy}-${mm}-${dd}`;
-    }
 
     function initCanvas(id) {
       const canvas = document.getElementById(id);
       const ctx = canvas.getContext("2d");
-
-      // ✅ 自适应宽度和固定高度
       canvas.width = canvas.offsetWidth;
       canvas.height = 150;
-
       let drawing = false;
 
       const getPos = (e) => {
         const rect = canvas.getBoundingClientRect();
-        return {
-          x: (e.clientX || e.touches[0].clientX) - rect.left,
-          y: (e.clientY || e.touches[0].clientY) - rect.top
-        };
+        return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
       };
 
-      const start = (e) => {
-        drawing = true;
-        const pos = getPos(e);
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-      };
-
-      const draw = (e) => {
-        if (!drawing) return;
-        const pos = getPos(e);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-      };
-
+      const start = (e) => { drawing = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
+      const draw = (e) => { if (!drawing) return; const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); };
       const stop = () => drawing = false;
 
-      // 鼠标事件
       canvas.addEventListener("mousedown", start);
       canvas.addEventListener("mousemove", draw);
       canvas.addEventListener("mouseup", stop);
       canvas.addEventListener("mouseout", stop);
-
-      // 触摸事件
       canvas.addEventListener("touchstart", (e) => { e.preventDefault(); start(e); });
       canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e); });
       canvas.addEventListener("touchend", stop);
@@ -247,22 +131,40 @@
       return document.getElementById(id).toDataURL("image/png");
     }
 
-    document.getElementById("main-form").addEventListener("submit", (e) => {
+    document.addEventListener("DOMContentLoaded", () => {
+      initCanvas("sign-fahrer");
+      initCanvas("sign-dlog");
+    });
+
+    document.getElementById("main-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const data = {
-        Datum: document.getElementById("datum").value,
         Nr: document.getElementById("nr").value,
+        Datum: document.getElementById("datum").value,
         Spedition: document.getElementById("spedition").value,
         Empfaenger: document.getElementById("empfaenger").value,
         Lieferant: document.getElementById("lieferant").value,
         WA_WE: document.getElementById("wawe").value,
         Europaletten: document.getElementById("euro").value,
         Einwegpaletten: document.getElementById("einweg").value,
-        Hinweis: document.getElementById("sonstiges").value
+        Hinweis: document.getElementById("sonstiges").value,
+        SignFahrer: getSignatureData("sign-fahrer"),
+        SignDlog: getSignatureData("sign-dlog")
       };
-      const signFahrer = getSignatureData("sign-fahrer");
-      const signDlog = getSignatureData("sign-dlog");
 
+      // ⚡ 发送到 Power Automate
+      try {
+        await fetch(FLOW_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        console.log("✅ Daten an Power Automate gesendet!");
+      } catch (err) {
+        console.error("❌ Fehler beim Senden:", err);
+      }
+
+      // 本地生成 PDF
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       let y = 20;
@@ -271,17 +173,17 @@
       y += 10;
       doc.setFontSize(12);
       for (const [k, v] of Object.entries(data)) {
-        doc.text(`${k}: ${v}`, 20, y);
-        y += 8;
+        if (k !== "SignFahrer" && k !== "SignDlog") {
+          doc.text(`${k}: ${v}`, 20, y);
+          y += 8;
+        }
       }
-      doc.addImage(signFahrer, "PNG", 20, y, 80, 40);
+      doc.addImage(data.SignFahrer, "PNG", 20, y, 80, 40);
       doc.text("Unterschrift Fahrer", 20, y + 45);
-      doc.addImage(signDlog, "PNG", 110, y, 80, 40);
+      doc.addImage(data.SignDlog, "PNG", 110, y, 80, 40);
       doc.text("Unterschrift d-log", 110, y + 45);
 
-      let nr = data.Nr?.trim() || generateBerlinTimestamp();
-      nr = nr.replace(/[\\/:*?"<>|]/g, "-");
-      filename = `Palettenschein Nr ${nr}`;
+      filename = `Palettenschein-${data.Nr || Date.now()}`;
       pdfBlob = doc.output("blob");
 
       document.getElementById("download-buttons").classList.remove("hidden");
@@ -292,15 +194,6 @@
       link.href = URL.createObjectURL(pdfBlob);
       link.download = `${filename}.pdf`;
       link.click();
-      document.getElementById("finish-btn").classList.remove("hidden");
-    });
-
-    document.getElementById("finish-btn").addEventListener("click", () => {
-      document.getElementById("main-form").reset();
-      clearCanvas("sign-fahrer");
-      clearCanvas("sign-dlog");
-      document.getElementById("download-buttons").classList.add("hidden");
-      document.getElementById("finish-btn").classList.add("hidden");
     });
   </script>
 </body>
