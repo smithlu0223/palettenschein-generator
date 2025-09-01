@@ -38,6 +38,7 @@
     .container { width: 100%; padding: 1rem; }
     label { display: block; margin-top: 12px; font-weight: bold; }
     #download-buttons button { margin: 6px 0; display: block; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -83,7 +84,7 @@
       <canvas id="sign-dlog"></canvas>
       <button type="button" onclick="clearCanvas('sign-dlog')">Signatur d-log löschen</button>
 
-      <button type="submit">Daten Erzeugen</button>
+      <button type="submit">✅ Speichern & PDF erzeugen</button>
     </form>
 
     <div id="download-buttons" class="hidden">
@@ -93,7 +94,9 @@
   </div>
 
   <script>
-    const FLOW_URL = "⚡ 在这里粘贴你的 Power Automate HTTP POST URL ⚡";
+    // ⚡ 在这里粘贴 Power Automate 生成的 HTTP POST URL
+    const FLOW_URL = "PASTE-YOUR-FLOW-URL-HERE";
+
     let pdfBlob, filename;
 
     function initCanvas(id) {
@@ -152,7 +155,7 @@
         SignDlog: getSignatureData("sign-dlog")
       };
 
-      // ⚡ 发送到 Power Automate
+      // 1️⃣ 发送数据到 Power Automate → Excel
       try {
         await fetch(FLOW_URL, {
           method: "POST",
@@ -164,7 +167,7 @@
         console.error("❌ Fehler beim Senden:", err);
       }
 
-      // 本地生成 PDF
+      // 2️⃣ 本地生成 PDF
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       let y = 20;
