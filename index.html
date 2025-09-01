@@ -46,14 +46,21 @@
     <form id="main-form">
       <h2>Palettenschein Generator</h2>
 
+      <label for="company">Spedition wählen</label>
+      <select id="company" onchange="handleCompanyChange()" required>
+        <option value="DHL">DHL</option>
+        <option value="Intern">Intern</option>
+        <option value="GLS">GLS</option>
+      </select>
+
       <label for="nr">Nr</label>
-      <input type="text" id="nr" required />
+      <input type="text" id="nr" required readonly />
 
       <label for="datum">Datum</label>
       <input type="date" id="datum" required />
 
       <label for="spedition">Spedition</label>
-      <input type="text" id="spedition" />
+      <input type="text" id="spedition" readonly />
 
       <label for="empfaenger">Kunde / Empfänger</label>
       <input type="text" id="empfaenger" />
@@ -94,10 +101,49 @@
   </div>
 
   <script>
-    // ⚡ 在这里粘贴 Power Automate 生成的 HTTP POST URL
+    // ⚡ 在这里粘贴 Power Automate 的 HTTP URL
     const FLOW_URL = "PASTE-YOUR-FLOW-URL-HERE";
 
     let pdfBlob, filename;
+
+    function generateBerlinTimestamp() {
+      const date = new Date();
+      const options = { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" };
+      const berlinTime = new Intl.DateTimeFormat("de-DE", options).format(date);
+      const [d, m, y] = berlinTime.split(",")[0].split(".");
+      const [h, min] = berlinTime.split(",")[1].trim().split(":");
+      return `${y}${m}${d}-${h}${min}`;
+    }
+
+    function handleCompanyChange() {
+      const company = document.getElementById("company").value;
+      const nrField = document.getElementById("nr");
+      const speditionField = document.getElementById("spedition");
+      const timestamp = generateBerlinTimestamp();
+
+      if (company === "GLS") {
+        nrField.removeAttribute("readonly");
+        nrField.value = "";
+        speditionField.setAttribute("readonly", true);
+        speditionField.value = "GLS";
+      } else if (company === "DHL") {
+        nrField.setAttribute("readonly", true);
+        nrField.value = timestamp;
+        speditionField.setAttribute("readonly", true);
+        speditionField.value = "DHL";
+      } else if (company === "Intern") {
+        nrField.setAttribute("readonly", true);
+        nrField.value = timestamp;
+        speditionField.removeAttribute("readonly");
+        speditionField.value = "";
+      }
+
+      const berlin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
+      const yyyy = berlin.getFullYear();
+      const mm = String(berlin.getMonth() + 1).padStart(2, "0");
+      const dd = String(berlin.getDate()).padStart(2, "0");
+      document.getElementById("datum").value = `${yyyy}-${mm}-${dd}`;
+    }
 
     function initCanvas(id) {
       const canvas = document.getElementById(id);
@@ -137,6 +183,7 @@
     document.addEventListener("DOMContentLoaded", () => {
       initCanvas("sign-fahrer");
       initCanvas("sign-dlog");
+      handleCompanyChange();
     });
 
     document.getElementById("main-form").addEventListener("submit", async (e) => {
