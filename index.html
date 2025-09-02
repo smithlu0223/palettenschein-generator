@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <title>Palettenschein Generator</title>
-  <script src="https://alcdn.msauth.net/browser/2.32.0/js/msal-browser.min.js"></script>
   <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     body { font-family: sans-serif; padding: 20px; }
@@ -59,33 +58,16 @@
     <label>Unterschrift d-log</label>
     <canvas id="sign-dlog"></canvas>
 
-    <button type="submit">✅ Speichern & PDF erzeugen</button>
+    <button type="submit">✅ Speichern & PDF + CSV</button>
   </form>
 
   <div id="download-buttons" style="display:none;">
     <button id="download-pdf">⬇️ PDF Herunterladen</button>
+    <button id="download-csv">⬇️ CSV Herunterladen</button>
   </div>
 
   <script>
-    // ------------------ MSAL 配置 ------------------
-const msalConfig = {
-  auth: {
-    clientId: "b75d6f6a-d423-4632-8cdc-c3e001334862",
-    authority: "https://login.microsoftonline.com/common/",
-    redirectUri: "https://smithlu0223.github.io/palettenschein-generator/" // 👈 必须和 Azure 一致
-  }
-};
-    const msalInstance = new msal.PublicClientApplication(msalConfig);
-    let accessToken = null;
-
-    async function login() {
-      const result = await msalInstance.loginPopup({
-        scopes: ["Files.ReadWrite"]
-      });
-      accessToken = result.accessToken;
-    }
-
-    // ------------------ Nr & Spedition 逻辑 ------------------
+    // ------------------ DHL/GLS/Intern 逻辑 ------------------
     function generateBerlinTimestamp() {
       const date = new Date();
       const options = { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" };
@@ -118,7 +100,6 @@ const msalConfig = {
         speditionField.value = "";
       }
 
-      // 自动设置 Datum 为当天
       const berlin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
       const yyyy = berlin.getFullYear();
       const mm = String(berlin.getMonth() + 1).padStart(2, "0");
@@ -126,7 +107,7 @@ const msalConfig = {
       document.getElementById("datum").value = `${yyyy}-${mm}-${dd}`;
     }
 
-    // ------------------ Canvas 签名 ------------------
+    // ------------------ 签名 ------------------
     function initCanvas(id) {
       const canvas = document.getElementById(id);
       const ctx = canvas.getContext("2d");
@@ -154,32 +135,18 @@ const msalConfig = {
     initCanvas("sign-dlog");
     handleCompanyChange();
 
-    // ------------------ CSV 处理 ------------------
+    // ------------------ CSV 缓存 ------------------
+    let csvContent = "Nr,Datum,Spedition,Empfaenger,Lieferant,WA_WE,Europaletten,Einwegpaletten,Hinweis\n";
+
     function convertToCSVRow(data) {
       return `${data.Nr},${data.Datum},${data.Spedition},${data.Empfaenger},${data.Lieferant},${data.WA_WE},${data.Europaletten},${data.Einwegpaletten},${data.Hinweis}\n`;
     }
 
-    async function appendToCsvOnOneDrive(row) {
-      const filePath = "/Palettenschein/data.csv";
-      const getUrl = `https://graph.microsoft.com/v1.0/me/drive/root:${filePath}:/content`;
-      const oldFile = await fetch(getUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-      const oldText = oldFile.ok ? await oldFile.text() : "Nr,Datum,Spedition,Empfaenger,Lieferant,WA_WE,Europaletten,Einwegpaletten,Hinweis\n";
-      const newText = oldText + row;
-      const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:${filePath}:/content`;
-      await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: new Blob([newText], { type: "text/csv" })
-      });
-    }
-
     // ------------------ 表单提交 ------------------
+    let pdfBlob, filename;
+
     document.getElementById("main-form").addEventListener("submit", async (e) => {
       e.preventDefault();
-
-      if (!accessToken) {
-        await login(); // 第一次需要登录微软账号
-      }
 
       const data = {
         Nr: document.getElementById("nr").value,
@@ -195,11 +162,10 @@ const msalConfig = {
         SignDlog: getSignatureData("sign-dlog")
       };
 
-      // 1️⃣ 写入 CSV
-      const row = convertToCSVRow(data);
-      await appendToCsvOnOneDrive(row);
+      // 1️⃣ CSV 累积
+      csvContent += convertToCSVRow(data);
 
-      // 2️⃣ 生成 PDF
+      // 2️⃣ PDF 生成
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       doc.text("Palettenschein", 105, 20, { align: "center" });
@@ -215,14 +181,27 @@ const msalConfig = {
       doc.addImage(data.SignDlog, "PNG", 110, y, 80, 40);
       doc.text("Unterschrift d-log", 110, y + 45);
 
-      const pdfBlob = doc.output("blob");
-      const filename = `Palettenschein-${data.Nr}.pdf`;
+      filename = `Palettenschein-${data.Nr}.pdf`;
+      pdfBlob = doc.output("blob");
+
+      document.getElementById("download-buttons").style.display = "block";
+    });
+
+    // PDF 下载
+    document.getElementById("download-pdf").addEventListener("click", () => {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(pdfBlob);
       link.download = filename;
       link.click();
+    });
 
-      document.getElementById("download-buttons").style.display = "block";
+    // CSV 下载
+    document.getElementById("download-csv").addEventListener("click", () => {
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "PalettenscheinData.csv";
+      link.click();
     });
   </script>
 </body>
